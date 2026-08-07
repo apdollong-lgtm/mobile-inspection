@@ -580,14 +580,20 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 
 <!-- QR Modal -->
 <div class="modal-overlay" id="qrModal">
-  <div class="modal" style="max-width: 360px;">
+  <div class="modal" style="max-width: 360px;" onclick="event.stopPropagation()">
     <h2>สแกน QR / Barcode</h2>
     <div class="close-btn" onclick="stopQrScanner()"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></div>
     <div class="modal-body">
       <div id="qr-reader"></div>
+      <p id="qrStatus" style="font-size:12.5px;color:var(--muted);margin:8px 0;text-align:center;">กำลังเปิดกล้อง...</p>
+      <div class="field" style="margin-top:12px;margin-bottom:0">
+        <label>หรือกรอก Lot ด้วยมือ</label>
+        <input type="text" id="qrManualLot" placeholder="LOT-250807-001">
+      </div>
     </div>
     <div class="modal-actions">
       <button class="modal-btn secondary" onclick="stopQrScanner()">ยกเลิก</button>
+      <button class="modal-btn primary" id="btnQrManual">ใช้ Lot นี้</button>
     </div>
   </div>
 </div>
@@ -668,78 +674,71 @@ let currentNcId = null;
 let editingUserId = null;
 let html5QrcodeScanner = null;
 
-const USE_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+const USE_SCRIPT_RUN = typeof google !== 'undefined' && google.script && google.script.run;
+const API_PROXY = '/api/gas';
 let RECORDS = [];
 
-function gasCall(fn, ...args) {
-  return new Promise((resolve, reject) => {
-    if (!USE_GAS) return reject(new Error('Local mock not supported for '+fn));
-    google.script.run
-      .withSuccessHandler(resolve)
-      .withFailureHandler(err => reject(new Error(err.message || String(err))))
-      [fn](...args);
+async function apiCall(fn, ...args) {
+  if (USE_SCRIPT_RUN) {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(err => reject(new Error(err.message || String(err))))
+        [fn](...args);
+    });
+  }
+  const res = await fetch(API_PROXY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'call', fn, args }),
   });
+  if (!res.ok) throw new Error('เชื่อม Server ไม่สำเร็จ (' + res.status + ')');
+  const data = await res.json();
+  if (data && data.ok === false && data.error) throw new Error(data.error);
+  return data;
 }
 
 const api = {
   async login(username, password) {
-    if (USE_GAS) return gasCall('apiLogin', username, password);
-    if (username === 'inspector' && password === 'inspector123') {
-      return { ok: true, token: 'demo', user: { id: 'u1', name: 'สมชาย ใจดี', role: 'Inspector', username: 'inspector' } };
-    }
-    if (username === 'manager' && password === 'manager123') {
-      return { ok: true, token: 'demo', user: { id: 'u2', name: 'วราภรณ์ ศรีสุข', role: 'Manager', username: 'manager' } };
-    }
-    throw new Error('Username หรือ Password ไม่ถูกต้อง');
+    return apiCall('apiLogin', username, password);
   },
   async verifySession(token) {
-    if (USE_GAS) return gasCall('apiVerifySession', token);
-    return { ok: true, user: currentUser };
+    return apiCall('apiVerifySession', token);
   },
   async logout(token) {
-    if (USE_GAS && token && token !== 'demo') return gasCall('apiLogout', token);
+    if (token && token !== 'demo') return apiCall('apiLogout', token);
     return { ok: true };
   },
   async getConfig() {
-    if (USE_GAS) return gasCall('apiGetConfig', sessionToken);
-    return {
-      types: ["Raw Material Inspection","Line Inspection"],
-      checklists: { "Raw Material Inspection":["ลักษณะภายนอก","สี / กลิ่น"], "Line Inspection":["ความสะอาด"] }
-    };
+    return apiCall('apiGetConfig', sessionToken);
   },
   async loadRecords() {
-    if (USE_GAS) return gasCall('apiGetRecords', sessionToken);
-    return [];
+    return apiCall('apiGetRecords', sessionToken);
   },
   async saveRecord(record, files) {
-    if (USE_GAS) {
-      const res = await gasCall('apiSaveRecord', sessionToken, record, files);
-      return res.data || res;
-    }
-    return record;
+    const res = await apiCall('apiSaveRecord', sessionToken, record, files);
+    return res.data || res;
   },
   async nextNo() {
-    if (USE_GAS) return gasCall('apiGetNextNo', sessionToken);
-    return 'INS-TEST-001';
+    return apiCall('apiGetNextNo', sessionToken);
   },
   async approve(id, approver, note, status) {
-    if (USE_GAS) return gasCall('apiApproveRecord', sessionToken, id, approver, note, status);
+    return apiCall('apiApproveRecord', sessionToken, id, approver, note, status);
   },
   async closeNc(id, action, by) {
-    if (USE_GAS) return gasCall('apiCloseNC', sessionToken, id, action, by);
+    return apiCall('apiCloseNC', sessionToken, id, action, by);
   },
   async changePassword(oldPw, newPw) {
-    if (USE_GAS) return gasCall('apiChangePassword', sessionToken, oldPw, newPw);
+    return apiCall('apiChangePassword', sessionToken, oldPw, newPw);
   },
   async getUsers() {
-    if (USE_GAS) return gasCall('apiGetUsers', sessionToken);
-    return [];
+    return apiCall('apiGetUsers', sessionToken);
   },
   async createUser(input) {
-    if (USE_GAS) return gasCall('apiCreateUser', sessionToken, input);
+    return apiCall('apiCreateUser', sessionToken, input);
   },
   async updateUser(userId, input) {
-    if (USE_GAS) return gasCall('apiUpdateUser', sessionToken, userId, input);
+    return apiCall('apiUpdateUser', sessionToken, userId, input);
   }
 };
 
@@ -849,18 +848,16 @@ $('#logoutBtn').addEventListener('click', async () => {
 
 /* ---------- Initialization ---------- */
 async function initApp() {
-  setOnlineStatus(USE_GAS, USE_GAS ? 'กำลังเชื่อมต่อ Server...' : 'Offline Mode');
+  setOnlineStatus(true, 'กำลังเชื่อมต่อ Google Sheets...');
   try {
+    toast('กำลังโหลดข้อมูล...');
     const cfg = await api.getConfig();
     TYPES = cfg.types;
     CHECKLISTS = cfg.checklists;
-    
-    // populate selects
     $('#fType').innerHTML = TYPES.map(t=>`<option value="${t}">${t}</option>`).join('');
     $('#fltType').innerHTML = '<option value="">ทุกประเภท</option>' + TYPES.map(t=>`<option value="${t}">${t}</option>`).join('');
-    
     await loadAndRefresh();
-    setOnlineStatus(USE_GAS, USE_GAS ? 'Online · Google Sheets' : 'Offline');
+    setOnlineStatus(true, 'Online · Google Sheets');
   } catch (e) {
     setOnlineStatus(false, 'เชื่อมต่อไม่สำเร็จ');
     toast('โหลดข้อมูลไม่สำเร็จ · ' + (e.message || e));
@@ -1210,25 +1207,77 @@ async function saveInspection(override){
 }
 
 /* ---------- QR Scanner ---------- */
-$('#scanBtn').addEventListener('click', () => {
-  $('#qrModal').classList.add('active');
-  html5QrcodeScanner = new Html5Qrcode("qr-reader");
-  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-  html5QrcodeScanner.start({ facingMode: "environment" }, config, (decodedText) => {
-    $('#fLot').value = decodedText;
-    stopQrScanner();
-    toast('สแกน QR สำเร็จ');
-  }, () => {}).catch(err => {
-    toast('ไม่สามารถเข้าถึงกล้องได้: ' + err);
-    stopQrScanner();
-  });
-});
+let qrStarting = false;
+
 window.stopQrScanner = function() {
-  if (html5QrcodeScanner) {
-    html5QrcodeScanner.stop().then(() => { html5QrcodeScanner.clear(); }).catch(e=>console.log(e));
-  }
   $('#qrModal').classList.remove('active');
+  qrStarting = false;
+  const scanner = html5QrcodeScanner;
+  html5QrcodeScanner = null;
+  if (scanner) {
+    scanner.stop().then(() => { try { scanner.clear(); } catch(e) {} })
+      .catch(() => { try { scanner.clear(); } catch(e) {} });
+  }
+  const el = $('#qr-reader');
+  if (el) el.innerHTML = '';
+  $('#qrStatus').textContent = '';
+  $('#qrManualLot').value = '';
+};
+
+function applyManualLot() {
+  const lot = $('#qrManualLot').value.trim();
+  if (!lot) return toast('กรุณากรอก Lot / Batch');
+  $('#fLot').value = lot;
+  stopQrScanner();
+  toast('บันทึก Lot สำเร็จ');
 }
+
+$('#btnQrManual').addEventListener('click', applyManualLot);
+$('#qrManualLot').addEventListener('keydown', e => { if (e.key === 'Enter') applyManualLot(); });
+$('#qrModal').addEventListener('click', e => { if (e.target === $('#qrModal')) stopQrScanner(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#qrModal').classList.contains('active')) stopQrScanner(); });
+
+$('#scanBtn').addEventListener('click', async () => {
+  if (qrStarting) return;
+  stopQrScanner();
+  $('#qrModal').classList.add('active');
+  $('#qrStatus').textContent = 'กำลังเปิดกล้อง...';
+  $('#qrManualLot').value = $('#fLot').value || '';
+
+  if (typeof Html5Qrcode === 'undefined') {
+    $('#qrStatus').textContent = 'ไม่รองรับสแกน QR ในเบราว์เซอร์นี้ · กรอก Lot ด้านล่าง';
+    return;
+  }
+
+  qrStarting = true;
+  html5QrcodeScanner = new Html5Qrcode('qr-reader');
+  const config = { fps: 8, qrbox: { width: 220, height: 220 } };
+  const timeout = setTimeout(() => {
+    if ($('#qrModal').classList.contains('active')) {
+      $('#qrStatus').textContent = 'เปิดกล้องไม่ได้ · กรอก Lot ด้านล่างแทน';
+      qrStarting = false;
+    }
+  }, 4000);
+
+  try {
+    await html5QrcodeScanner.start({ facingMode: 'environment' }, config,
+      (decodedText) => {
+        clearTimeout(timeout);
+        $('#fLot').value = decodedText;
+        stopQrScanner();
+        toast('สแกน QR สำเร็จ');
+      },
+      () => {}
+    );
+    clearTimeout(timeout);
+    $('#qrStatus').textContent = 'เล็ง QR / Barcode ไปที่กล้อง';
+    qrStarting = false;
+  } catch (err) {
+    clearTimeout(timeout);
+    qrStarting = false;
+    $('#qrStatus').textContent = 'เปิดกล้องไม่ได้ · กรอก Lot ด้านล่างแทน';
+  }
+});
 
 /* ---------- Navigation & Refresh ---------- */
 const TITLES={dashboard:['แดชบอร์ด','ภาพรวมผลการตรวจสอบ'],inspect:['ตรวจสอบใหม่','บันทึกผลการตรวจ QC/QA'],records:['บันทึกการตรวจ','ประวัติทั้งหมด'],pending:['รออนุมัติ (Pending)','พิจารณาผลการตรวจ'],analytics:['วิเคราะห์เชิงลึก','สถิติและรายการ NC'],settings:['บัญชีของฉัน','เปลี่ยนรหัสผ่านและข้อมูลบัญชี'],users:['จัดการผู้ใช้','เพิ่ม/แก้ไขบัญชีผู้ใช้งาน']};
@@ -1238,6 +1287,7 @@ function go(view){
   $$('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   $('#pageTitle').textContent=TITLES[view][0]; $('#pageSub').textContent=TITLES[view][1];
   if(view==='inspect') buildForm();
+  if(view!=='inspect') stopQrScanner();
   if(view==='users') renderUsers();
   if(view==='settings') { $('#pwOld').value=''; $('#pwNew').value=''; $('#pwConfirm').value=''; }
   $('#side').classList.remove('open'); $('#scrim').classList.remove('show');

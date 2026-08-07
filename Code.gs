@@ -95,6 +95,13 @@ function handleRequest_(e, method) {
       case 'logout':
         result = logout_(params.token);
         break;
+      case 'call':
+        var fnArgs = params.args;
+        if (typeof fnArgs === 'string') {
+          try { fnArgs = JSON.parse(fnArgs); } catch (e) { fnArgs = []; }
+        }
+        result = handleApiCall_(params.fn, fnArgs || []);
+        break;
       default:
         result = { ok: false, error: 'Unknown action: ' + action };
     }
@@ -712,6 +719,56 @@ function getNextInspectionNo_() {
   return prefix + pad_(max + 1, 3);
 }
 
+function seedSampleRecords_(count) {
+  count = Number(count) || 10;
+  const cfg = getConfig_();
+  const types = cfg.types.length ? cfg.types : ['Raw Material Inspection'];
+  const inspectors = ['สมชาย ใจดี', 'วราภรณ์ ศรีสุข', 'ธนกร พงษ์ไพ', 'อรทัย มั่นคง'];
+  const baseResults = ['PASS', 'PASS', 'PASS', 'HOLD', 'FAIL'];
+  const created = [];
+  const today = new Date();
+
+  for (var i = 0; i < count; i++) {
+    const type = types[i % types.length];
+    const items = cfg.checklists[type] || ['รายการตรวจ'];
+    const target = baseResults[i % baseResults.length];
+
+    const checklist = items.map(function (name, idx) {
+      var v = 'pass';
+      if (target === 'FAIL' && idx === 0) v = 'fail';
+      else if (target === 'HOLD' && idx === items.length - 1) v = 'hold';
+      return { name: name, result: v };
+    });
+
+    const result = computeResult_(checklist);
+    const day = new Date(today);
+    day.setDate(today.getDate() - (i % 7));
+    day.setHours(8 + (i % 9), (i * 11) % 60, 0, 0);
+
+    const ymd = day.getFullYear() + pad_(day.getMonth() + 1, 2) + pad_(day.getDate(), 2);
+    const record = {
+      id: 'r' + Date.now() + i + Math.floor(Math.random() * 1000),
+      no: 'INS-' + ymd + '-' + pad_(100 + i, 3),
+      date: day.toISOString(),
+      type: type,
+      lot: 'LOT-' + ymd.slice(2) + '-' + pad_(10 + i, 3),
+      inspector: inspectors[i % inspectors.length],
+      checklist: checklist,
+      note: i % 4 === 0 ? 'ข้อมูลตัวอย่าง · สร้างจาก Web App' : '',
+      result: result,
+      ncOpen: result === 'FAIL',
+      status: result === 'PASS' ? 'Approved' : 'Pending',
+      approver: result === 'PASS' ? 'วราภรณ์ ศรีสุข' : '',
+    };
+
+    saveRecord_({ record: record });
+    created.push(record.no);
+  }
+
+  writeLog_('SEED', 'Created ' + created.length + ' sample records');
+  return { ok: true, count: created.length, records: created };
+}
+
 /* ============================================================
    Record Transform
    ============================================================ */
@@ -891,7 +948,12 @@ function apiUpdateUser(token, userId, input) { return updateUser_(token, userId,
 
 function apiGetRecords(token) {
   requireAuth_(token);
-  return getRecords_({});
+  var records = getRecords_({});
+  if (records.length === 0) {
+    seedSampleRecords_(10);
+    records = getRecords_({});
+  }
+  return records;
 }
 function apiSaveRecord(token, record, filesPayload) {
   const user = requireAuth_(token);
@@ -913,4 +975,23 @@ function apiApproveRecord(token, id, approver, note, status) {
 function apiCloseNC(token, id, action, by) {
   const user = requireAuth_(token, ['Manager']);
   return closeNc_(id, action, by || user.name);
+}
+
+function handleApiCall_(fn, args) {
+  switch (fn) {
+    case 'apiLogin': return apiLogin(args[0], args[1]);
+    case 'apiVerifySession': return apiVerifySession(args[0]);
+    case 'apiLogout': return apiLogout(args[0]);
+    case 'apiChangePassword': return apiChangePassword(args[0], args[1], args[2]);
+    case 'apiGetUsers': return apiGetUsers(args[0]);
+    case 'apiCreateUser': return apiCreateUser(args[0], args[1]);
+    case 'apiUpdateUser': return apiUpdateUser(args[0], args[1], args[2]);
+    case 'apiGetRecords': return apiGetRecords(args[0]);
+    case 'apiSaveRecord': return apiSaveRecord(args[0], args[1], args[2]);
+    case 'apiGetNextNo': return apiGetNextNo(args[0]);
+    case 'apiGetConfig': return apiGetConfig(args[0]);
+    case 'apiApproveRecord': return apiApproveRecord(args[0], args[1], args[2], args[3], args[4]);
+    case 'apiCloseNC': return apiCloseNC(args[0], args[1], args[2], args[3]);
+    default: throw new Error('Unknown API function: ' + fn);
+  }
 }

@@ -1,2 +1,9 @@
 .clasp.json
 .claspignore
+.git/**
+.gitignore
+.env
+.env.*
+api/**
+vercel.json
+.env.example
