@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FactoryStudio Inspect — ระบบตรวจ QC/QA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<style>
+:root{
+  --navy:#0B1F3A; --navy-2:#122f52; --navy-line:#1d3a5f;
+  --blue:#2563EB; --blue-2:#1d4ed8; --blue-soft:#EAF1FF;
+  --pass:#12A150; --pass-soft:#E6F6EC;
+  --fail:#E23B3B; --fail-soft:#FCEAEA;
+  --hold:#E7920A; --hold-soft:#FDF2DE;
+  --bg:#EEF2F8; --card:#FFFFFF;
+  --ink:#132038; --muted:#63728C; --faint:#93A1B8;
+  --line:#E3E9F3;
+  --radius:14px; --radius-sm:10px;
+  --shadow:0 1px 2px rgba(16,32,64,.06), 0 6px 20px rgba(16,32,64,.05);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans Thai',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--sans); background:var(--bg); color:var(--ink);
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#cdd6e4;border-radius:20px;border:2px solid var(--bg)}
+
+/* ---------- Shell ---------- */
+.app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+
+/* sidebar */
+.side{
+  background:var(--navy); color:#cdd8ea; display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;
+}
+.brand{display:flex;align-items:center;gap:11px;padding:22px 20px 20px}
+.brand .mark{
+  width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(140deg,#3b82f6,#1d4ed8);
+  box-shadow:0 4px 12px rgba(37,99,235,.45);
+}
+.brand .mark svg{width:22px;height:22px}
+.brand b{color:#fff;font-size:15px;font-weight:600;letter-spacing:.2px;line-height:1.15;display:block}
+.brand span{font-size:11px;color:#7f93b4;font-family:var(--mono);letter-spacing:.5px}
+.nav{padding:8px 12px;display:flex;flex-direction:column;gap:3px}
+.nav .lbl{font-size:10.5px;letter-spacing:1.4px;color:#5f7398;text-transform:uppercase;padding:14px 12px 6px;font-weight:600}
+.nav button{
+  display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+  padding:10px 12px;border-radius:9px;color:#b9c6dd;font-size:13.5px;font-weight:500;
+  transition:.15s;
+}
+.nav button svg{width:18px;height:18px;flex:none;opacity:.85}
+.nav button:hover{background:var(--navy-2);color:#fff}
+.nav button.active{background:var(--blue);color:#fff;box-shadow:0 6px 16px rgba(37,99,235,.4)}
+.nav button.active svg{opacity:1}
+.nav button.hidden{display:none}
+.hidden{display:none!important}
+.side-foot{margin-top:auto;padding:16px;border-top:1px solid var(--navy-line);display:flex;justify-content:space-between;align-items:center;}
+.who{display:flex;align-items:center;gap:10px}
+.who .ava{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#0e9e57);display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex:none}
+.who small{display:block;color:#7f93b4;font-size:11px}
+.who b{color:#fff;font-size:12.5px;font-weight:500}
+.logout-btn{color:#7f93b4;padding:4px;border-radius:6px;}
+.logout-btn:hover{background:var(--navy-line);color:#fff;}
+
+/* main */
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{
+  background:rgba(255,255,255,.85);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+  padding:14px 28px;display:flex;align-items:center;gap:16px;
+  position:sticky;top:0;z-index:20;
+}
+.topbar h1{font-size:19px;font-weight:600;letter-spacing:-.2px}
+.topbar .sub{color:var(--muted);font-size:12.5px;margin-top:1px}
+.topbar .spacer{flex:1}
+.chip-date{
+  font-family:var(--mono);font-size:12px;color:var(--muted);
+  background:#fff;border:1px solid var(--line);padding:7px 12px;border-radius:8px;
+  display:flex;align-items:center;gap:7px;
+}
+.chip-date .dot{width:7px;height:7px;border-radius:50%;background:var(--pass);box-shadow:0 0 0 3px var(--pass-soft)}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border-radius:9px;
+  font-weight:600;font-size:13px;transition:.15s;white-space:nowrap;
+}
+.btn svg{width:16px;height:16px}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.3)}
+.btn-primary:hover{background:var(--blue-2)}
+.btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn-ghost:hover{border-color:#c3cede;background:#f8fafd}
+.content{padding:26px 28px 60px;overflow:auto}
+.view{display:none;animation:fade .3s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:15px;margin-bottom:22px}
+.kpi{background:var(--card);border-radius:var(--radius);padding:17px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden;border:1px solid var(--line)}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blue)}
+.kpi.k-pass::before{background:var(--pass)} .kpi.k-fail::before{background:var(--fail)}
+.kpi.k-hold::before{background:var(--hold)} .kpi.k-nc::before{background:#7c3aed}
+.kpi .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.kpi .ico{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--blue-soft);color:var(--blue)}
+.kpi.k-pass .ico{background:var(--pass-soft);color:var(--pass)}
+.kpi.k-fail .ico{background:var(--fail-soft);color:var(--fail)}
+.kpi.k-hold .ico{background:var(--hold-soft);color:var(--hold)}
+.kpi.k-nc .ico{background:#f1eafe;color:#7c3aed}
+.kpi .ico svg{width:18px;height:18px}
+.kpi .val{font-size:28px;font-weight:700;font-family:var(--mono);letter-spacing:-1px;line-height:1}
+.kpi .lbl{color:var(--muted);font-size:12.5px;margin-top:5px}
+.kpi .delta{font-size:11px;font-weight:600;padding:2px 7px;border-radius:20px}
+.delta.up{background:var(--pass-soft);color:var(--pass)}
+.delta.down{background:var(--fail-soft);color:var(--fail)}
+
+/* ---------- grid & cards ---------- */
+.grid{display:grid;gap:15px}
+.g-2-1{grid-template-columns:1.6fr 1fr}
+.g-2{grid-template-columns:1fr 1fr}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line);padding:18px 20px;margin-bottom:15px}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-h h3{font-size:14.5px;font-weight:600}
+.card-h .hint{font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+.legend{display:flex;gap:14px;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.chart-wrap{position:relative;height:260px}
+.chart-wrap.sm{height:220px}
+
+/* ---------- table ---------- */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{
+  text-align:left;font-size:11px;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--faint);font-weight:600;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.tbl td{padding:11px 12px;border-bottom:1px solid #f0f3f8;font-size:13px;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr{transition:.12s}
+.tbl tbody tr:hover{background:#f8fbff}
+.code{font-family:var(--mono);font-size:12px;color:var(--navy-2);font-weight:500}
+.muted{color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:600}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%}
+.b-pass{background:var(--pass-soft);color:#0d7a3c}.b-pass::before{background:var(--pass)}
+.b-fail{background:var(--fail-soft);color:#c62828}.b-fail::before{background:var(--fail)}
+.b-hold{background:var(--hold-soft);color:#a86a00}.b-hold::before{background:var(--hold)}
+.b-pending { background: #fdf2de; color: #a86a00; border: 1px solid #f3dcae; } .b-pending::before { background: #E7920A; }
+.b-approved { background: var(--pass-soft); color: #0d7a3c; border: 1px solid #c6e9d3; } .b-approved::before { background: var(--pass); }
+.b-rejected { background: var(--fail-soft); color: #c62828; border: 1px solid #f3c7c7; } .b-rejected::before { background: var(--fail); }
+.tag{display:inline-block;padding:3px 9px;border-radius:7px;background:#eef2f8;color:#465a78;font-size:11.5px;font-weight:500}
+
+/* ---------- form ---------- */
+.form-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:12.5px;font-weight:600;color:#41506b;margin-bottom:6px}
+.field label .req{color:var(--fail)}
+.field input,.field select,.field textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fbfcfe;transition:.15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px var(--blue-soft)}
+.field input[readonly]{background:#f1f4f9;color:var(--muted);font-family:var(--mono);font-size:13px}
+.field textarea{resize:vertical;min-height:70px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* checklist */
+.check-item{
+  display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--line);
+  border-radius:10px;margin-bottom:9px;background:#fbfcfe;transition:.15s;
+}
+.check-item .cname{flex:1;font-size:13.5px;font-weight:500}
+.check-item .cnum{font-family:var(--mono);font-size:11px;color:var(--faint);width:20px}
+.seg{display:flex;gap:5px}
+.seg button{
+  padding:6px 13px;border-radius:8px;font-size:12px;font-weight:600;border:1.5px solid var(--line);color:var(--muted);background:#fff;transition:.12s
+}
+.seg button[data-v="pass"].on{background:var(--pass);border-color:var(--pass);color:#fff}
+.seg button[data-v="fail"].on{background:var(--fail);border-color:var(--fail);color:#fff}
+.seg button[data-v="hold"].on{background:var(--hold);border-color:var(--hold);color:#fff}
+.check-item.is-fail{border-color:#f3c7c7;background:var(--fail-soft)}
+.check-item.is-hold{border-color:#f3dcae;background:var(--hold-soft)}
+.check-item.is-pass{border-color:#c6e9d3;background:var(--pass-soft)}
+
+.result-box{border:1px dashed var(--line);border-radius:12px;padding:16px;text-align:center;margin:6px 0 14px;background:#fafcff}
+.result-box .rlabel{font-size:12px;color:var(--muted);margin-bottom:8px}
+.result-stamp{font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:2px}
+.result-stamp.r-PASS{color:var(--pass)} .result-stamp.r-FAIL{color:var(--fail)} .result-stamp.r-HOLD{color:var(--hold)}
+.submit-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}
+.big-btn{padding:14px;border-radius:11px;font-weight:700;font-size:14px;color:#fff;letter-spacing:.5px;transition:.15s;box-shadow:var(--shadow)}
+.big-btn.pass{background:var(--pass)} .big-btn.fail{background:var(--fail)} .big-btn.hold{background:var(--hold)}
+.big-btn:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.big-btn:active{transform:none}
+.big-btn:disabled{opacity:0.6;cursor:not-allowed;}
+
+.photo-row{display:flex;gap:9px;flex-wrap:wrap;margin-top:5px;}
+.photo-add{
+  width:66px;height:66px;border:1.5px dashed #c3cede;border-radius:10px;display:grid;place-items:center;color:var(--faint);background:#fbfcfe;transition:.15s
+}
+.photo-add:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
+.photo-thumb{
+  width:66px;height:66px;border-radius:10px;background:#dde5f0 center/cover;position:relative;
+  border:1px solid var(--line);display:grid;place-items:center;font-size:11px;font-weight:bold;color:var(--navy);
+}
+.photo-thumb b{
+  position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;
+  background:var(--fail);color:#fff;font-size:12px;display:grid;place-items:center;cursor:pointer;z-index:10;
+}
+
+/* filters */
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.filters .search{position:relative;flex:1;min-width:200px}
+.filters .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--faint)}
+.filters .search input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--line);border-radius:9px;background:#fff}
+.filters select{padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;font-weight:500}
+
+/* toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--navy);color:#fff;padding:13px 20px;border-radius:11px;font-size:13.5px;font-weight:500;
+  display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(11,31,58,.35);opacity:0;pointer-events:none;transition:.3s;z-index:100;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast svg{width:18px;height:18px;color:#4ade80}
+
+.empty{text-align:center;padding:40px;color:var(--faint)}
+.mini-list{display:flex;flex-direction:column;gap:10px}
+.mini-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0f3f8}
+.mini-row:last-child{border-bottom:none}
+.mini-bar{flex:1;height:8px;background:#eef2f8;border-radius:6px;overflow:hidden}
+.mini-bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#34a853,#12A150)}
+.mini-row .nm{width:150px;font-size:12.5px;font-weight:500}
+.mini-row .pc{width:44px;text-align:right;font-family:var(--mono);font-size:12.5px;font-weight:600}
+
+/* Modals */
+.modal-overlay{position:fixed;inset:0;background:rgba(11,31,58,.6);backdrop-filter:blur(4px);z-index:1000;display:none;place-items:center;}
+.modal-overlay.active{display:grid;}
+.modal{background:#fff;width:90%;max-width:440px;border-radius:16px;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,.2);position:relative;animation:slideUp .3s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.modal h2{margin-bottom:16px;font-size:18px;color:var(--navy);}
+.modal .close-btn{position:absolute;top:16px;right:16px;background:#f0f3f8;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;cursor:pointer;}
+.modal .close-btn:hover{background:#e3e9f3;}
+.modal-body{margin-bottom:20px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;}
+.modal-btn{padding:10px 16px;border-radius:9px;font-weight:600;cursor:pointer;transition:.15s;}
+.modal-btn.primary{background:var(--blue);color:#fff;}
+.modal-btn.primary:hover{background:var(--blue-2);}
+.modal-btn.secondary{background:#f0f3f8;color:var(--navy);}
+.modal-btn.secondary:hover{background:#e3e9f3;}
+.modal-btn.danger{background:var(--fail);color:#fff;}
+
+/* Scanner */
+#qr-reader{width:100%;border-radius:12px;overflow:hidden;margin-bottom:16px;border:2px solid var(--line);}
+
+@media(max-width:1100px){
+  .kpis{grid-template-columns:repeat(3,1fr)}
+  .g-2-1,.g-2,.form-grid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;left:-260px;z-index:60;transition:.25s;width:250px}
+  .side.open{left:0}
+  .kpis{grid-template-columns:1fr 1fr}
+  .content{padding:18px 16px 50px}
+  .topbar{padding:12px 16px}
+  .menu-btn{display:grid!important}
+  .two,.submit-row{grid-template-columns:1fr}
+}
+.menu-btn{display:none;width:38px;height:38px;border-radius:9px;border:1px solid var(--line);place-items:center;background:#fff}
+.scrim{display:none;position:fixed;inset:0;background:rgba(11,31,58,.4);z-index:55}
+.scrim.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- App Shell -->
+<div class="app" id="appShell" style="display:none;">
+  <aside class="side" id="side">
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </div>
+      <div><b>FactoryStudio</b><span>INSPECT · QC/QA</span></div>
+    </div>
+    <nav class="nav">
+      <div class="lbl">เมนูหลัก</div>
+      <button class="active" data-view="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>
+        แดชบอร์ด
+      </button>
+      <button data-view="inspect" id="nav-inspect">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6V6H9z"/><path d="M8.5 11l1.5 1.5 2.5-2.5M8.5 16l1.5 1.5 2.5-2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        ตรวจสอบใหม่
+      </button>
+      <button data-view="records">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16M4 12h16M4 19h16" stroke-linecap="round"/></svg>
+        บันทึกการตรวจ
+      </button>
+      <div class="lbl" id="lbl-manager">สำหรับหัวหน้า (Manager)</div>
+      <button data-view="pending" id="nav-pending">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg>
+        รออนุมัติ (Pending) <span id="pendingBadge" style="background:#E23B3B;color:#fff;border-radius:20px;padding:2px 6px;font-size:10px;margin-left:auto;display:none;">0</span>
+      </button>
+      <div class="lbl">รายงาน</div>
+      <button data-view="analytics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V4M4 20h16" stroke-linecap="round"/><path d="M8 16l3-4 3 2 4-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        วิเคราะห์เชิงลึก
+      </button>
+      <div class="lbl">ตั้งค่า</div>
+      <button data-view="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke-linecap="round"/></svg>
+        บัญชีของฉัน
+      </button>
+      <button data-view="users" id="nav-users" class="hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 20c0-3 2.5-5 6-5M14 20c0-2 2-3.5 4.5-3.5" stroke-linecap="round"/></svg>
+        จัดการผู้ใช้
+      </button>
+    </nav>
+    <div class="side-foot">
+      <div class="who">
+        <div class="ava" id="userInitials">UI</div>
+        <div><b id="userName">User</b><small id="userRole">Role</small></div>
+      </div>
+      <button class="logout-btn" id="logoutBtn" title="ออกจากระบบ"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#132038" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/></svg></button>
+      <div>
+        <h1 id="pageTitle">แดชบอร์ด</h1>
+        <div class="sub" id="pageSub">ภาพรวมผลการตรวจสอบคุณภาพแบบเรียลไทม์</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="chip-date"><span class="dot"></span><span id="clock">--</span></div>
+      <button class="btn btn-primary" id="newBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        ตรวจสอบใหม่
+      </button>
+    </header>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <section class="view active" id="view-dashboard">
+        <div class="kpis" id="kpis"></div>
+        <div class="grid g-2-1">
+          <div class="card">
+            <div class="card-h">
+              <h3>แนวโน้มผลการตรวจ · 14 วันล่าสุด</h3>
+              <div class="legend">
+                <span><i style="background:var(--pass)"></i>Pass</span>
+                <span><i style="background:var(--hold)"></i>Hold</span>
+                <span><i style="background:var(--fail)"></i>Fail</span>
+              </div>
+            </div>
+            <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>สัดส่วนผลรวม</h3><span class="hint" id="donutTotal"></span></div>
+            <div class="chart-wrap"><canvas id="donutChart"></canvas></div>
+          </div>
+        </div>
+        <div class="grid g-2-1">
+          <div class="card">
+            <div class="card-h"><h3>การตรวจล่าสุด</h3><button class="btn btn-ghost" data-view="records" style="padding:6px 12px">ดูทั้งหมด</button></div>
+            <div style="overflow:auto">
+              <table class="tbl"><thead><tr>
+                <th>Inspection No.</th><th>ประเภท</th><th>Lot / Batch</th><th>ผู้ตรวจ</th><th>ผล</th><th>สถานะ</th>
+              </tr></thead><tbody id="recentRows"></tbody></table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>อัตราผ่านตามประเภท</h3></div>
+            <div class="mini-list" id="passByType"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NEW INSPECTION -->
+      <section class="view" id="view-inspect">
+        <div class="form-grid">
+          <div>
+            <div class="card">
+              <div class="card-h"><h3>ข้อมูลการตรวจสอบ</h3><span class="badge b-pass" id="statusOnline"><span></span>กำลังเชื่อมต่อ...</span></div>
+              <div class="two">
+                <div class="field"><label>Inspection No.</label><input id="fNo" readonly></div>
+                <div class="field"><label>วันที่ / เวลา</label><input id="fDate" readonly></div>
+              </div>
+              <div class="two">
+                <div class="field">
+                  <label>ประเภทการตรวจ <span class="req">*</span></label>
+                  <select id="fType"></select>
+                </div>
+                <div class="field"><label>ผู้ตรวจสอบ</label><input id="fInspector" readonly></div>
+              </div>
+              <div class="field">
+                <label>Lot / Batch <span class="req">*</span></label>
+                <div style="display:flex;gap:8px">
+                  <input id="fLot" placeholder="LOT-250518-001" style="flex:1">
+                  <button class="btn btn-ghost" id="scanBtn" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><path d="M4 4h4M4 4v4M20 4h-4M20 4v4M4 20h4M4 20v-4M20 20h-4M20 20v-4" stroke-linecap="round"/><path d="M8 8h8v8H8z"/></svg>
+                    สแกน QR
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-h"><h3>รายการตรวจ (Checklist)</h3><span class="hint">แตะเลือก Pass / Fail / Hold</span></div>
+              <div id="checklist"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="card-h"><h3>สรุปผล</h3></div>
+              <div class="result-box">
+                <div class="rlabel">ผลการตรวจสอบ (คำนวณอัตโนมัติ)</div>
+                <div class="result-stamp r-PASS" id="resultStamp">PASS</div>
+              </div>
+              <div class="field"><label>หมายเหตุ</label><textarea id="fNote" placeholder="เช่น พบสิ่งแปลกปลอมเล็กน้อย ต้องคัดแยก..."></textarea></div>
+              <div class="field">
+                <label>แนบรูปหลักฐาน / เอกสาร (PDF)</label>
+                <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none;" multiple>
+                <div class="photo-row" id="photoRow">
+                  <button class="photo-add" id="addPhoto" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6" stroke-linejoin="round"/></svg></button>
+                </div>
+              </div>
+              <div class="submit-row">
+                <button class="big-btn pass" data-r="PASS">PASS</button>
+                <button class="big-btn fail" data-r="FAIL">FAIL</button>
+                <button class="big-btn hold" data-r="HOLD">HOLD</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RECORDS -->
+      <section class="view" id="view-records">
+        <div class="card">
+          <div class="filters">
+            <div class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg>
+              <input id="fltSearch" placeholder="ค้นหา Inspection No. / Lot / ผู้ตรวจ...">
+            </div>
+            <select id="fltType"><option value="">ทุกประเภท</option></select>
+            <select id="fltResult">
+              <option value="">ทุกผล</option><option value="PASS">Pass</option><option value="FAIL">Fail</option><option value="HOLD">Hold</option>
+            </select>
+            <button class="btn btn-ghost" id="exportBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Export CSV
+            </button>
+          </div>
+          <div style="overflow:auto">
+            <table class="tbl"><thead><tr>
+              <th>Inspection No.</th><th>วันที่ / เวลา</th><th>ประเภท</th><th>Lot / Batch</th><th>ผู้ตรวจ</th><th>ผล</th><th>สถานะ</th>
+            </tr></thead><tbody id="recordRows"></tbody></table>
+          </div>
+        </div>
+      </section>
+      
+      <!-- PENDING APPROVAL -->
+      <section class="view" id="view-pending">
+        <div class="card">
+          <div class="card-h"><h3>รายการที่รอการอนุมัติ (Manager Only)</h3></div>
+          <div style="overflow:auto">
+            <table class="tbl"><thead><tr>
+              <th>Inspection No.</th><th>วันที่ / เวลา</th><th>ประเภท</th><th>Lot / Batch</th><th>ผู้ตรวจ</th><th>ผล</th><th>Action</th>
+            </tr></thead><tbody id="pendingRows"></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ANALYTICS & NC -->
+      <section class="view" id="view-analytics">
+        <div class="grid g-2">
+          <div class="card">
+            <div class="card-h"><h3>จำนวนการตรวจตามประเภท</h3></div>
+            <div class="chart-wrap sm"><canvas id="typeChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>ปริมาณการตรวจรายวัน</h3></div>
+            <div class="chart-wrap sm"><canvas id="volChart"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>รายการที่ไม่ผ่าน (NC) ที่ต้องติดตาม</h3><span class="hint" id="ncCount"></span></div>
+          <div style="overflow:auto">
+            <table class="tbl"><thead><tr>
+              <th>Inspection No.</th><th>ประเภท</th><th>Lot</th><th>รายการที่ Fail</th><th>ผู้ตรวจ</th><th>สถานะ</th><th>Action</th>
+            </tr></thead><tbody id="ncRows"></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS (Change Password) -->
+      <section class="view" id="view-settings">
+        <div class="card" style="max-width:480px;">
+          <div class="card-h"><h3>เปลี่ยนรหัสผ่าน</h3></div>
+          <div class="field">
+            <label>รหัสผ่านเดิม <span class="req">*</span></label>
+            <input type="password" id="pwOld" autocomplete="current-password">
+          </div>
+          <div class="field">
+            <label>รหัสผ่านใหม่ <span class="req">*</span></label>
+            <input type="password" id="pwNew" autocomplete="new-password" placeholder="อย่างน้อย 6 ตัวอักษร">
+          </div>
+          <div class="field">
+            <label>ยืนยันรหัสผ่านใหม่ <span class="req">*</span></label>
+            <input type="password" id="pwConfirm" autocomplete="new-password">
+          </div>
+          <button class="btn btn-primary" id="btnChangePw">บันทึกรหัสผ่านใหม่</button>
+        </div>
+        <div class="card" style="max-width:480px;">
+          <div class="card-h"><h3>ข้อมูลบัญชี</h3></div>
+          <p style="font-size:13.5px;line-height:1.8;">
+            <b>Username:</b> <span id="settingsUsername">-</span><br>
+            <b>ชื่อ:</b> <span id="settingsName">-</span><br>
+            <b>Role:</b> <span id="settingsRole">-</span>
+          </p>
+        </div>
+      </section>
+
+      <!-- USER MANAGEMENT (Manager) -->
+      <section class="view" id="view-users">
+        <div class="card">
+          <div class="card-h">
+            <h3>จัดการผู้ใช้งาน</h3>
+            <button class="btn btn-primary" id="btnAddUser" style="padding:6px 14px;font-size:13px;">+ เพิ่มผู้ใช้</button>
+          </div>
+          <div style="overflow:auto">
+            <table class="tbl"><thead><tr>
+              <th>Username</th><th>ชื่อ</th><th>Role</th><th>สถานะ</th><th>Action</th>
+            </tr></thead><tbody id="userRows"></tbody></table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Login Modal -->
+<div class="modal-overlay active" id="loginModal">
+  <div class="modal">
+    <h2>เข้าสู่ระบบ</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">FactoryStudio Inspect · QC/QA</p>
+    <div class="modal-body">
+      <div class="field">
+        <label>Username <span class="req">*</span></label>
+        <input type="text" id="loginUsername" placeholder="เช่น inspector" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Password <span class="req">*</span></label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <p id="loginError" style="color:var(--fail);font-size:12.5px;margin-top:4px;display:none;"></p>
+      <p style="color:var(--faint);font-size:11.5px;margin-top:12px;line-height:1.5;">
+        บัญชีเริ่มต้น: <b>inspector</b> / inspector123 · <b>manager</b> / manager123
+      </p>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn primary" id="btnLogin">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal" style="max-width: 360px;">
+    <h2>สแกน QR / Barcode</h2>
+    <div class="close-btn" onclick="stopQrScanner()"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></div>
+    <div class="modal-body">
+      <div id="qr-reader"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn secondary" onclick="stopQrScanner()">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Approve Modal -->
+<div class="modal-overlay" id="approveModal">
+  <div class="modal">
+    <h2>พิจารณาผลการตรวจสอบ</h2>
+    <div class="close-btn" onclick="$('#approveModal').classList.remove('active')"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></div>
+    <div class="modal-body">
+      <p id="approveDetails" style="margin-bottom:15px;font-size:13px;line-height:1.6;"></p>
+      <div class="field">
+        <label>หมายเหตุการอนุมัติ (Optional)</label>
+        <textarea id="approveNote" placeholder="ระบุเหตุผล หากมีการ Reject..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn danger" id="btnReject">Reject (ไม่อนุมัติ)</button>
+      <button class="modal-btn primary" id="btnApprove" style="background:var(--pass);">Approve (อนุมัติ)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Resolve NC Modal -->
+<div class="modal-overlay" id="ncModal">
+  <div class="modal">
+    <h2>บันทึกการแก้ไข NC</h2>
+    <div class="close-btn" onclick="$('#ncModal').classList.remove('active')"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></div>
+    <div class="modal-body">
+      <p id="ncDetails" style="margin-bottom:15px;font-size:13px;"></p>
+      <div class="field">
+        <label>วิธีการแก้ไข (Corrective Action) <span class="req">*</span></label>
+        <textarea id="ncActionNote" placeholder="ระบุการแก้ไขเบื้องต้น..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn primary" id="btnCloseNc">บันทึกและปิด NC</button>
+    </div>
+  </div>
+</div>
+
+<!-- User Modal -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal">
+    <h2 id="userModalTitle">เพิ่มผู้ใช้ใหม่</h2>
+    <div class="close-btn" onclick="closeUserModal()"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></div>
+    <div class="modal-body">
+      <div class="field"><label>Username <span class="req">*</span></label><input type="text" id="uUsername" placeholder="เช่น qa001"></div>
+      <div class="field"><label>ชื่อ - นามสกุล <span class="req">*</span></label><input type="text" id="uName" placeholder="เช่น สมชาย ใจดี"></div>
+      <div class="field"><label>Role</label>
+        <select id="uRole"><option value="Inspector">Inspector</option><option value="Manager">Manager</option></select>
+      </div>
+      <div class="field" id="uPasswordField"><label>Password <span class="req">*</span></label><input type="password" id="uPassword" placeholder="อย่างน้อย 6 ตัวอักษร"></div>
+      <div class="field hidden" id="uActiveField"><label>สถานะ</label>
+        <select id="uActive"><option value="true">ใช้งาน</option><option value="false">ระงับ</option></select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn secondary" onclick="closeUserModal()">ยกเลิก</button>
+      <button class="modal-btn primary" id="btnSaveUser">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="toastMsg"></span></div>
+
+<script>
+/* ============================================================
+   FactoryStudio Inspect — App Logic
+   ============================================================ */
+let TYPES = [];
+let CHECKLISTS = {};
+let currentUser = { name: '', role: '', username: '' };
+let sessionToken = '';
+let filePayloads = [];
+let currentApproveId = null;
+let currentNcId = null;
+let editingUserId = null;
+let html5QrcodeScanner = null;
+
+const USE_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+let RECORDS = [];
+
+function gasCall(fn, ...args) {
+  return new Promise((resolve, reject) => {
+    if (!USE_GAS) return reject(new Error('Local mock not supported for '+fn));
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(err => reject(new Error(err.message || String(err))))
+      [fn](...args);
+  });
+}
+
+const api = {
+  async login(username, password) {
+    if (USE_GAS) return gasCall('apiLogin', username, password);
+    if (username === 'inspector' && password === 'inspector123') {
+      return { ok: true, token: 'demo', user: { id: 'u1', name: 'สมชาย ใจดี', role: 'Inspector', username: 'inspector' } };
+    }
+    if (username === 'manager' && password === 'manager123') {
+      return { ok: true, token: 'demo', user: { id: 'u2', name: 'วราภรณ์ ศรีสุข', role: 'Manager', username: 'manager' } };
+    }
+    throw new Error('Username หรือ Password ไม่ถูกต้อง');
+  },
+  async verifySession(token) {
+    if (USE_GAS) return gasCall('apiVerifySession', token);
+    return { ok: true, user: currentUser };
+  },
+  async logout(token) {
+    if (USE_GAS && token && token !== 'demo') return gasCall('apiLogout', token);
+    return { ok: true };
+  },
+  async getConfig() {
+    if (USE_GAS) return gasCall('apiGetConfig', sessionToken);
+    return {
+      types: ["Raw Material Inspection","Line Inspection"],
+      checklists: { "Raw Material Inspection":["ลักษณะภายนอก","สี / กลิ่น"], "Line Inspection":["ความสะอาด"] }
+    };
+  },
+  async loadRecords() {
+    if (USE_GAS) return gasCall('apiGetRecords', sessionToken);
+    return [];
+  },
+  async saveRecord(record, files) {
+    if (USE_GAS) {
+      const res = await gasCall('apiSaveRecord', sessionToken, record, files);
+      return res.data || res;
+    }
+    return record;
+  },
+  async nextNo() {
+    if (USE_GAS) return gasCall('apiGetNextNo', sessionToken);
+    return 'INS-TEST-001';
+  },
+  async approve(id, approver, note, status) {
+    if (USE_GAS) return gasCall('apiApproveRecord', sessionToken, id, approver, note, status);
+  },
+  async closeNc(id, action, by) {
+    if (USE_GAS) return gasCall('apiCloseNC', sessionToken, id, action, by);
+  },
+  async changePassword(oldPw, newPw) {
+    if (USE_GAS) return gasCall('apiChangePassword', sessionToken, oldPw, newPw);
+  },
+  async getUsers() {
+    if (USE_GAS) return gasCall('apiGetUsers', sessionToken);
+    return [];
+  },
+  async createUser(input) {
+    if (USE_GAS) return gasCall('apiCreateUser', sessionToken, input);
+  },
+  async updateUser(userId, input) {
+    if (USE_GAS) return gasCall('apiUpdateUser', sessionToken, userId, input);
+  }
+};
+
+/* ---------- Helpers & UI ---------- */
+const $=(s,el=document)=>el.querySelector(s);
+const $$=(s,el=document)=>[...el.querySelectorAll(s)];
+const fmtDate=iso=>{const d=new Date(iso);return `${pad(d.getDate(),2)}/${pad(d.getMonth()+1,2)}/${d.getFullYear()} ${pad(d.getHours(),2)}:${pad(d.getMinutes(),2)}`};
+const fmtTime=iso=>{const d=new Date(iso);const now=new Date();const diff=(now-d)/36e5; if(diff<1)return Math.max(1,Math.floor(diff*60))+' นาทีที่แล้ว'; if(diff<24)return Math.floor(diff)+' ชม.ที่แล้ว'; return pad(d.getDate(),2)+'/'+pad(d.getMonth()+1,2)};
+const badge=r=>`<span class="badge b-${r.toLowerCase()}">${r}</span>`;
+const statusBadge=s=>{
+  if(s==='Approved') return '<span class="badge b-approved">Approved</span>';
+  if(s==='Rejected') return '<span class="badge b-rejected">Rejected</span>';
+  return '<span class="badge b-pending">Pending</span>';
+};
+function pad(n,l=3){return String(n).padStart(l,'0')}
+function toast(msg){const t=$('#toast');$('#toastMsg').textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600)}
+
+/* ---------- Auth ---------- */
+function applyUserUI() {
+  $('#userInitials').textContent = currentUser.name.slice(0, 2);
+  $('#userName').textContent = currentUser.name;
+  $('#userRole').textContent = currentUser.role === 'Manager' ? 'QA Manager' : 'QA Inspector';
+  $('#settingsUsername').textContent = currentUser.username || '-';
+  $('#settingsName').textContent = currentUser.name || '-';
+  $('#settingsRole').textContent = currentUser.role || '-';
+  $('#appShell').style.display = 'grid';
+  if (currentUser.role !== 'Manager') {
+    $('#nav-pending').classList.add('hidden');
+    $('#lbl-manager').classList.add('hidden');
+    $('#nav-users').classList.add('hidden');
+  } else {
+    $('#nav-pending').classList.remove('hidden');
+    $('#lbl-manager').classList.remove('hidden');
+    $('#nav-users').classList.remove('hidden');
+  }
+}
+
+function showLogin(errMsg) {
+  $('#appShell').style.display = 'none';
+  $('#loginModal').classList.add('active');
+  if (errMsg) {
+    $('#loginError').textContent = errMsg;
+    $('#loginError').style.display = 'block';
+  } else {
+    $('#loginError').style.display = 'none';
+  }
+}
+
+async function checkAuth() {
+  sessionToken = sessionStorage.getItem('fsi_token') || '';
+  if (!sessionToken) {
+    showLogin();
+    return;
+  }
+  try {
+    const res = await api.verifySession(sessionToken);
+    currentUser = res.user || res;
+    applyUserUI();
+    $('#loginModal').classList.remove('active');
+    await initApp();
+  } catch (e) {
+    sessionStorage.removeItem('fsi_token');
+    sessionToken = '';
+    showLogin(e.message || 'Session หมดอายุ');
+  }
+}
+
+async function doLogin() {
+  const username = $('#loginUsername').value.trim();
+  const password = $('#loginPassword').value;
+  if (!username || !password) {
+    $('#loginError').textContent = 'กรุณากรอก Username และ Password';
+    $('#loginError').style.display = 'block';
+    return;
+  }
+  $('#btnLogin').disabled = true;
+  $('#btnLogin').textContent = 'กำลังเข้าสู่ระบบ...';
+  try {
+    const res = await api.login(username, password);
+    sessionToken = res.token;
+    currentUser = res.user;
+    sessionStorage.setItem('fsi_token', sessionToken);
+    $('#loginModal').classList.remove('active');
+    applyUserUI();
+    await initApp();
+    toast('ยินดีต้อนรับ · ' + currentUser.name);
+  } catch (e) {
+    $('#loginError').textContent = e.message || 'เข้าสู่ระบบไม่สำเร็จ';
+    $('#loginError').style.display = 'block';
+  } finally {
+    $('#btnLogin').disabled = false;
+    $('#btnLogin').textContent = 'เข้าสู่ระบบ';
+  }
+}
+
+$('#btnLogin').addEventListener('click', doLogin);
+$('#loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+$('#loginUsername').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+$('#logoutBtn').addEventListener('click', async () => {
+  try { await api.logout(sessionToken); } catch (e) { /* ignore */ }
+  sessionStorage.removeItem('fsi_token');
+  sessionToken = '';
+  currentUser = { name: '', role: '', username: '' };
+  location.reload();
+});
+
+/* ---------- Initialization ---------- */
+async function initApp() {
+  setOnlineStatus(USE_GAS, USE_GAS ? 'กำลังเชื่อมต่อ Server...' : 'Offline Mode');
+  try {
+    const cfg = await api.getConfig();
+    TYPES = cfg.types;
+    CHECKLISTS = cfg.checklists;
+    
+    // populate selects
+    $('#fType').innerHTML = TYPES.map(t=>`<option value="${t}">${t}</option>`).join('');
+    $('#fltType').innerHTML = '<option value="">ทุกประเภท</option>' + TYPES.map(t=>`<option value="${t}">${t}</option>`).join('');
+    
+    await loadAndRefresh();
+    setOnlineStatus(USE_GAS, USE_GAS ? 'Online · Google Sheets' : 'Offline');
+  } catch (e) {
+    setOnlineStatus(false, 'เชื่อมต่อไม่สำเร็จ');
+    toast('โหลดข้อมูลไม่สำเร็จ · ' + (e.message || e));
+  }
+}
+
+function setOnlineStatus(online, msg) {
+  const el = $('#statusOnline');
+  el.className = 'badge ' + (online ? 'b-pass' : 'b-hold');
+  el.innerHTML = '<span></span>' + msg;
+}
+
+/* ---------- Rendering Views ---------- */
+function refreshAll(){
+  renderKPIs(); renderTrend(); renderDonut(); renderRecent(); renderPassByType();
+  renderRecords(); renderTypeChart(); renderVolChart(); renderNC(); renderPending();
+}
+
+function last14(){
+  const days=[]; const t=new Date();
+  for(let i=13;i>=0;i--){const d=new Date(t);d.setDate(t.getDate()-i);days.push(d)}
+  return days;
+}
+function sameDay(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate()}
+
+const charts={};
+Chart.defaults.font.family="IBM Plex Sans Thai"; Chart.defaults.color="#63728C"; Chart.defaults.font.size=11;
+const COL={pass:'#12A150',hold:'#E7920A',fail:'#E23B3B',blue:'#2563EB'};
+
+function renderKPIs(){
+  const total=RECORDS.length;
+  const pass=RECORDS.filter(r=>r.result==='PASS').length;
+  const fail=RECORDS.filter(r=>r.result==='FAIL').length;
+  const hold=RECORDS.filter(r=>r.result==='HOLD').length;
+  const nc=RECORDS.filter(r=>r.ncOpen).length;
+  const rate=total?Math.round(pass/total*100):0;
+  const ic={
+    total:'<path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5" stroke-linecap="round"/>',
+    pass:'<path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>',
+    fail:'<path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/>',
+    hold:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2" stroke-linecap="round"/>',
+    nc:'<path d="M12 3l9 16H3z" stroke-linejoin="round"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/>'
+  };
+  const sv=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">${p}</svg>`;
+  $('#kpis').innerHTML=`
+   <div class="kpi"><div class="top"><div class="ico">${sv(ic.total)}</div></div><div class="val">${total}</div><div class="lbl">การตรวจทั้งหมด</div></div>
+   <div class="kpi k-pass"><div class="top"><div class="ico">${sv(ic.pass)}</div><span class="delta up">${rate}%</span></div><div class="val">${pass}</div><div class="lbl">ผ่าน (Pass)</div></div>
+   <div class="kpi k-fail"><div class="top"><div class="ico">${sv(ic.fail)}</div></div><div class="val">${fail}</div><div class="lbl">ไม่ผ่าน (Fail)</div></div>
+   <div class="kpi k-hold"><div class="top"><div class="ico">${sv(ic.hold)}</div></div><div class="val">${hold}</div><div class="lbl">รอตัดสิน (Hold)</div></div>
+   <div class="kpi k-nc"><div class="top"><div class="ico">${sv(ic.nc)}</div></div><div class="val">${nc}</div><div class="lbl">NC ค้างติดตาม</div></div>`;
+}
+
+function renderTrend(){
+  const days=last14();
+  const lbl=days.map(d=>pad(d.getDate(),2)+'/'+pad(d.getMonth()+1,2));
+  const P=[],H=[],F=[];
+  days.forEach(day=>{
+    const rs=RECORDS.filter(r=>sameDay(new Date(r.date),day));
+    P.push(rs.filter(r=>r.result==='PASS').length);
+    H.push(rs.filter(r=>r.result==='HOLD').length);
+    F.push(rs.filter(r=>r.result==='FAIL').length);
+  });
+  charts.trend&&charts.trend.destroy();
+  charts.trend=new Chart($('#trendChart'),{
+    type:'bar', data:{labels:lbl,datasets:[
+      {label:'Pass',data:P,backgroundColor:COL.pass,borderRadius:4,stack:'s'},
+      {label:'Hold',data:H,backgroundColor:COL.hold,borderRadius:4,stack:'s'},
+      {label:'Fail',data:F,backgroundColor:COL.fail,borderRadius:4,stack:'s'}
+    ]}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'#eef2f8'}}}}
+  });
+}
+function renderDonut(){
+  const pass=RECORDS.filter(r=>r.result==='PASS').length;
+  const hold=RECORDS.filter(r=>r.result==='HOLD').length;
+  const fail=RECORDS.filter(r=>r.result==='FAIL').length;
+  $('#donutTotal').textContent=RECORDS.length+' รายการ';
+  charts.donut&&charts.donut.destroy();
+  charts.donut=new Chart($('#donutChart'),{
+    type:'doughnut', data:{labels:['Pass','Hold','Fail'],datasets:[{data:[pass,hold,fail],backgroundColor:[COL.pass,COL.hold,COL.fail],borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'66%',plugins:{legend:{position:'bottom',labels:{usePointStyle:true}}}}
+  });
+}
+function renderRecent(){
+  const rows=[...RECORDS].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,7);
+  $('#recentRows').innerHTML=rows.map(r=>`<tr>
+    <td class="code">${r.no}</td><td><span class="tag">${r.type}</span></td>
+    <td class="code muted">${r.lot}</td><td>${r.inspector}</td><td>${badge(r.result)}</td><td>${statusBadge(r.status)}</td></tr>`).join('');
+}
+function renderPassByType(){
+  const rows=TYPES.map(t=>{
+    const rs=RECORDS.filter(r=>r.type===t); const p=rs.filter(r=>r.result==='PASS').length;
+    return {t,pct:rs.length?Math.round(p/rs.length*100):0,n:rs.length};
+  }).filter(x=>x.n>0).sort((a,b)=>b.pct-a.pct);
+  $('#passByType').innerHTML=rows.map(x=>`<div class="mini-row"><span class="nm">${x.t}</span><span class="mini-bar"><i style="width:${x.pct}%;${x.pct<70?'background:linear-gradient(90deg,#f0a500,#E7920A)':''}"></i></span><span class="pc">${x.pct}%</span></div>`).join('');
+}
+function renderTypeChart(){
+  const data=TYPES.map(t=>RECORDS.filter(r=>r.type===t).length);
+  charts.type&&charts.type.destroy();
+  charts.type=new Chart($('#typeChart'),{
+    type:'bar', data:{labels:TYPES,datasets:[{data,backgroundColor:COL.blue,borderRadius:6,barThickness:18}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'#eef2f8'}},y:{grid:{display:false}}}}
+  });
+}
+function renderVolChart(){
+  const days=last14(); const lbl=days.map(d=>pad(d.getDate(),2)+'/'+pad(d.getMonth()+1,2));
+  const data=days.map(day=>RECORDS.filter(r=>sameDay(new Date(r.date),day)).length);
+  charts.vol&&charts.vol.destroy();
+  charts.vol=new Chart($('#volChart'),{
+    type:'line', data:{labels:lbl,datasets:[{data,borderColor:COL.blue,backgroundColor:'rgba(37,99,235,.12)',fill:true,tension:.35}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:'#eef2f8'}}}}
+  });
+}
+function renderRecords(){
+  const q=$('#fltSearch').value.trim().toLowerCase();
+  const ft=$('#fltType').value, fr=$('#fltResult').value;
+  let rows=[...RECORDS].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(ft) rows=rows.filter(r=>r.type===ft);
+  if(fr) rows=rows.filter(r=>r.result===fr);
+  if(q) rows=rows.filter(r=>(r.no+r.lot+r.inspector).toLowerCase().includes(q));
+  $('#recordRows').innerHTML = rows.length? rows.map(r=>{
+    return `<tr><td class="code">${r.no}</td><td class="muted">${fmtDate(r.date)}</td>
+      <td><span class="tag">${r.type}</span></td><td class="code muted">${r.lot}</td>
+      <td>${r.inspector}</td><td>${badge(r.result)}</td><td>${statusBadge(r.status)}</td></tr>`;
+  }).join('') : `<tr><td colspan="7" class="empty">ไม่พบข้อมูล</td></tr>`;
+}
+
+/* ---------- Pending Approval ---------- */
+function renderPending() {
+  const rows = RECORDS.filter(r => r.status === 'Pending').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const badgeEl = $('#pendingBadge');
+  badgeEl.textContent = rows.length;
+  badgeEl.style.display = rows.length > 0 ? 'inline-block' : 'none';
+  
+  $('#pendingRows').innerHTML = rows.length ? rows.map(r => `<tr>
+    <td class="code">${r.no}</td><td class="muted">${fmtDate(r.date)}</td>
+    <td><span class="tag">${r.type}</span></td><td class="code muted">${r.lot}</td>
+    <td>${r.inspector}</td><td>${badge(r.result)}</td>
+    <td><button class="btn btn-ghost" onclick="openApproveModal('${r.id}')" style="padding:4px 8px;font-size:12px;">ตรวจสอบ</button></td>
+  </tr>`).join('') : `<tr><td colspan="7" class="empty">ไม่มีรายการรออนุมัติ 🎉</td></tr>`;
+}
+
+window.openApproveModal = function(id) {
+  const r = RECORDS.find(x => x.id === id);
+  if(!r) return;
+  currentApproveId = id;
+  const fails = r.checklist.filter(c=>c.result==='fail').map(c=>c.name).join(', ');
+  let details = `<b>No:</b> ${r.no} <br><b>Lot:</b> ${r.lot} <br><b>Result:</b> ${r.result}`;
+  if (fails) details += `<br><b style="color:red">Failed Items:</b> ${fails}`;
+  if (r.note) details += `<br><b>Note:</b> ${r.note}`;
+  if (r.files) {
+    const urls = r.files.split('\n');
+    details += `<br><b>Files:</b> ` + urls.map((u,i)=>`<a href="${u}" target="_blank">File ${i+1}</a>`).join(', ');
+  }
+  $('#approveDetails').innerHTML = details;
+  $('#approveNote').value = '';
+  $('#approveModal').classList.add('active');
+}
+$('#btnApprove').addEventListener('click', () => submitApprove('Approved'));
+$('#btnReject').addEventListener('click', () => submitApprove('Rejected'));
+async function submitApprove(status) {
+  const note = $('#approveNote').value.trim();
+  $('#btnApprove').disabled = true; $('#btnReject').disabled = true;
+  try {
+    toast('กำลังบันทึก...');
+    await api.approve(currentApproveId, currentUser.name, note, status);
+    toast('บันทึกสำเร็จ');
+    $('#approveModal').classList.remove('active');
+    await loadAndRefresh();
+  } catch(e) {
+    toast('Error: ' + e.message);
+  } finally {
+    $('#btnApprove').disabled = false; $('#btnReject').disabled = false;
+  }
+}
+
+/* ---------- NC Tracking ---------- */
+function renderNC(){
+  const rows=RECORDS.filter(r=>r.ncOpen).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  $('#ncCount').textContent=rows.length+' รายการค้าง';
+  $('#ncRows').innerHTML = rows.length? rows.map(r=>{
+    const fails=r.checklist.filter(c=>c.result==='fail').map(c=>c.name).join(', ')||'-';
+    let actionBtn = '';
+    if (currentUser.role === 'Manager') {
+      actionBtn = `<button class="btn btn-primary" onclick="openNcModal('${r.id}')" style="padding:4px 8px;font-size:12px;">แก้ไข NC</button>`;
+    } else {
+      actionBtn = `<span class="muted" style="font-size:12px;">(รอ Manager ปิด)</span>`;
+    }
+    return `<tr><td class="code">${r.no}</td><td><span class="tag">${r.type}</span></td>
+      <td class="code muted">${r.lot}</td><td style="color:#c62828;font-weight:500">${fails}</td>
+      <td>${r.inspector}</td><td>${badge('FAIL')}</td>
+      <td>${actionBtn}</td></tr>`;
+  }).join('') : `<tr><td colspan="7" class="empty">ไม่มีรายการ NC ค้างติดตาม 🎉</td></tr>`;
+}
+window.openNcModal = function(id) {
+  const r = RECORDS.find(x => x.id === id);
+  if(!r) return;
+  currentNcId = id;
+  const fails = r.checklist.filter(c=>c.result==='fail').map(c=>c.name).join(', ');
+  $('#ncDetails').innerHTML = `<b>No:</b> ${r.no} <br><b>Lot:</b> ${r.lot} <br><b style="color:red">Issue:</b> ${fails}`;
+  $('#ncActionNote').value = '';
+  $('#ncModal').classList.add('active');
+}
+$('#btnCloseNc').addEventListener('click', async () => {
+  const action = $('#ncActionNote').value.trim();
+  if(!action) return toast('กรุณาระบุวิธีการแก้ไข');
+  $('#btnCloseNc').disabled = true;
+  try {
+    toast('กำลังบันทึก...');
+    await api.closeNc(currentNcId, action, currentUser.name);
+    toast('ปิด NC สำเร็จ');
+    $('#ncModal').classList.remove('active');
+    await loadAndRefresh();
+  } catch(e) {
+    toast('Error: ' + e.message);
+  } finally {
+    $('#btnCloseNc').disabled = false;
+  }
+});
+
+/* ---------- NEW INSPECTION FORM ---------- */
+async function buildForm(){
+  $('#fInspector').value = currentUser.name;
+  try { $('#fNo').value = await api.nextNo(); } catch (e) { $('#fNo').value = 'INS-????'; }
+  $('#fDate').value=fmtDate(new Date().toISOString());
+  $('#fLot').value=''; $('#fNote').value=''; 
+  filePayloads = [];
+  $$('.photo-thumb').forEach(e=>e.remove());
+  buildChecklist();
+}
+function buildChecklist(){
+  const type=$('#fType').value; const items=CHECKLISTS[type] || [];
+  $('#checklist').innerHTML=items.map((name,i)=>`
+    <div class="check-item is-pass">
+      <span class="cnum">${pad(i+1,2)}</span>
+      <span class="cname">${name}</span>
+      <div class="seg">
+        <button data-v="pass" class="on">Pass</button>
+        <button data-v="hold">Hold</button>
+        <button data-v="fail">Fail</button>
+      </div>
+    </div>`).join('');
+  $$('#checklist .seg button').forEach(b=>b.addEventListener('click',()=>{
+    const seg=b.parentElement, item=b.closest('.check-item');
+    seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    item.classList.remove('is-pass','is-fail','is-hold');
+    item.classList.add('is-'+b.dataset.v);
+    computeResult();
+  }));
+  computeResult();
+}
+function currentChecklist(){
+  return $$('#checklist .check-item').map(it=>({name:it.querySelector('.cname').textContent, result:it.querySelector('.seg .on').dataset.v}));
+}
+function computeResult(){
+  const cl=currentChecklist();
+  const r = cl.some(c=>c.result==='fail')?'FAIL': cl.some(c=>c.result==='hold')?'HOLD':'PASS';
+  const el=$('#resultStamp'); el.textContent=r; el.className='result-stamp r-'+r;
+  return r;
+}
+
+/* File Upload Logic */
+$('#addPhoto').addEventListener('click', () => {
+  if (filePayloads.length >= 4) return toast('แนบได้สูงสุด 4 ไฟล์');
+  $('#fileInput').click();
+});
+$('#fileInput').addEventListener('change', async (e) => {
+  const files = e.target.files;
+  for (let file of files) {
+    if (filePayloads.length >= 4) break;
+    toast('กำลังประมวลผลไฟล์...');
+    try {
+      const payload = await processFile(file);
+      filePayloads.push(payload);
+      const t = document.createElement('div');
+      t.className = 'photo-thumb';
+      if (payload.mime.startsWith('image/')) {
+        t.style.backgroundImage = `url(${payload.data})`;
+      } else {
+        t.innerHTML = `PDF`;
+      }
+      t.innerHTML += `<b>×</b>`;
+      t.querySelector('b').onclick = () => {
+        const idx = filePayloads.indexOf(payload);
+        if (idx > -1) filePayloads.splice(idx, 1);
+        t.remove();
+      };
+      $('#photoRow').insertBefore(t, $('#addPhoto'));
+    } catch(err) {
+      toast('Failed: ' + err.message);
+    }
+  }
+  $('#fileInput').value = '';
+});
+
+function processFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      if (file.type.startsWith('image/')) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let w = img.width, h = img.height;
+          const max = 800;
+          if (w > max || h > max) {
+            if (w > h) { h = Math.round(h * max / w); w = max; } 
+            else { w = Math.round(w * max / h); h = max; }
+          }
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve({ name: file.name, mime: 'image/jpeg', data: canvas.toDataURL('image/jpeg', 0.8) });
+        };
+        img.onerror = reject;
+        img.src = dataUrl;
+      } else {
+        resolve({ name: file.name, mime: file.type, data: dataUrl });
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* Save logic */
+async function saveInspection(override){
+  const lot=$('#fLot').value.trim();
+  if(!lot){ toast('กรุณากรอก Lot / Batch ก่อนบันทึก'); $('#fLot').focus(); return; }
+  const result=override||computeResult();
+  const rec={
+    no:$('#fNo').value, type:$('#fType').value, lot, inspector:$('#fInspector').value,
+    checklist:currentChecklist(), note:$('#fNote').value.trim(), result
+  };
+  $$('.big-btn').forEach(b=>b.disabled=true);
+  try {
+    toast('กำลังบันทึกและอัปโหลดไฟล์...');
+    await api.saveRecord(rec, filePayloads);
+    toast(`บันทึกสำเร็จ · ${rec.no}`);
+    await loadAndRefresh();
+    go('dashboard');
+  } catch (e) {
+    toast('บันทึกไม่สำเร็จ · ' + (e.message || e));
+  } finally {
+    $$('.big-btn').forEach(b=>b.disabled=false);
+  }
+}
+
+/* ---------- QR Scanner ---------- */
+$('#scanBtn').addEventListener('click', () => {
+  $('#qrModal').classList.add('active');
+  html5QrcodeScanner = new Html5Qrcode("qr-reader");
+  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+  html5QrcodeScanner.start({ facingMode: "environment" }, config, (decodedText) => {
+    $('#fLot').value = decodedText;
+    stopQrScanner();
+    toast('สแกน QR สำเร็จ');
+  }, () => {}).catch(err => {
+    toast('ไม่สามารถเข้าถึงกล้องได้: ' + err);
+    stopQrScanner();
+  });
+});
+window.stopQrScanner = function() {
+  if (html5QrcodeScanner) {
+    html5QrcodeScanner.stop().then(() => { html5QrcodeScanner.clear(); }).catch(e=>console.log(e));
+  }
+  $('#qrModal').classList.remove('active');
+}
+
+/* ---------- Navigation & Refresh ---------- */
+const TITLES={dashboard:['แดชบอร์ด','ภาพรวมผลการตรวจสอบ'],inspect:['ตรวจสอบใหม่','บันทึกผลการตรวจ QC/QA'],records:['บันทึกการตรวจ','ประวัติทั้งหมด'],pending:['รออนุมัติ (Pending)','พิจารณาผลการตรวจ'],analytics:['วิเคราะห์เชิงลึก','สถิติและรายการ NC'],settings:['บัญชีของฉัน','เปลี่ยนรหัสผ่านและข้อมูลบัญชี'],users:['จัดการผู้ใช้','เพิ่ม/แก้ไขบัญชีผู้ใช้งาน']};
+function go(view){
+  $$('.view').forEach(v=>v.classList.remove('active'));
+  $('#view-'+view).classList.add('active');
+  $$('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+  $('#pageTitle').textContent=TITLES[view][0]; $('#pageSub').textContent=TITLES[view][1];
+  if(view==='inspect') buildForm();
+  if(view==='users') renderUsers();
+  if(view==='settings') { $('#pwOld').value=''; $('#pwNew').value=''; $('#pwConfirm').value=''; }
+  $('#side').classList.remove('open'); $('#scrim').classList.remove('show');
+}
+async function loadAndRefresh(){
+  RECORDS = await api.loadRecords();
+  refreshAll();
+}
+
+/* ---------- Settings & Users ---------- */
+$('#btnChangePw').addEventListener('click', async () => {
+  const oldPw = $('#pwOld').value;
+  const newPw = $('#pwNew').value;
+  const confirm = $('#pwConfirm').value;
+  if (!oldPw || !newPw) return toast('กรุณากรอกรหัสผ่านให้ครบ');
+  if (newPw.length < 6) return toast('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
+  if (newPw !== confirm) return toast('รหัสผ่านใหม่ไม่ตรงกัน');
+  $('#btnChangePw').disabled = true;
+  try {
+    await api.changePassword(oldPw, newPw);
+    toast('เปลี่ยนรหัสผ่านสำเร็จ');
+    $('#pwOld').value = ''; $('#pwNew').value = ''; $('#pwConfirm').value = '';
+  } catch (e) {
+    toast(e.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+  } finally {
+    $('#btnChangePw').disabled = false;
+  }
+});
+
+async function renderUsers() {
+  try {
+    const users = await api.getUsers();
+    $('#userRows').innerHTML = users.length ? users.map(u => {
+      const st = u.active
+        ? '<span class="badge b-pass">Active</span>'
+        : '<span class="badge b-fail">Disabled</span>';
+      const isSelf = u.id === currentUser.id;
+      return `<tr>
+        <td class="code">${u.username}</td><td>${u.name}</td>
+        <td><span class="tag">${u.role}</span></td><td>${st}</td>
+        <td>
+          <button class="btn btn-ghost" onclick="openEditUser('${u.id}')" style="padding:4px 8px;font-size:12px;">แก้ไข</button>
+          ${isSelf ? '' : `<button class="btn btn-ghost" onclick="toggleUser('${u.id}',${!u.active})" style="padding:4px 8px;font-size:12px;color:${u.active?'var(--fail)':'var(--pass)'}">${u.active?'ระงับ':'เปิดใช้'}</button>`}
+        </td></tr>`;
+    }).join('') : `<tr><td colspan="5" class="empty">ไม่มีผู้ใช้</td></tr>`;
+  } catch (e) {
+    toast(e.message || 'โหลดรายชื่อผู้ใช้ไม่สำเร็จ');
+  }
+}
+
+$('#btnAddUser').addEventListener('click', () => openUserModal(null));
+
+window.openUserModal = function(user) {
+  editingUserId = user ? user.id : null;
+  $('#userModalTitle').textContent = user ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่';
+  $('#uUsername').value = user ? user.username : '';
+  $('#uUsername').readOnly = !!user;
+  $('#uName').value = user ? user.name : '';
+  $('#uRole').value = user ? user.role : 'Inspector';
+  $('#uPassword').value = '';
+  $('#uPasswordField').querySelector('label').innerHTML = user ? 'รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)' : 'Password <span class="req">*</span>';
+  $('#uActiveField').classList.toggle('hidden', !user);
+  if (user) $('#uActive').value = user.active ? 'true' : 'false';
+  $('#userModal').classList.add('active');
+};
+
+window.openEditUser = async function(id) {
+  const users = await api.getUsers();
+  const user = users.find(u => u.id === id);
+  if (user) openUserModal(user);
+};
+
+window.closeUserModal = function() {
+  $('#userModal').classList.remove('active');
+  editingUserId = null;
+};
+
+window.toggleUser = async function(id, active) {
+  if (!confirm(active ? 'เปิดใช้งานบัญชีนี้?' : 'ระงับบัญชีนี้?')) return;
+  try {
+    await api.updateUser(id, { active: active });
+    toast('อัปเดตสถานะสำเร็จ');
+    renderUsers();
+  } catch (e) {
+    toast(e.message || 'อัปเดตไม่สำเร็จ');
+  }
+};
+
+$('#btnSaveUser').addEventListener('click', async () => {
+  const username = $('#uUsername').value.trim().toLowerCase();
+  const name = $('#uName').value.trim();
+  const role = $('#uRole').value;
+  const password = $('#uPassword').value;
+  $('#btnSaveUser').disabled = true;
+  try {
+    if (editingUserId) {
+      const input = { name, role, active: $('#uActive').value === 'true' };
+      if (password) input.password = password;
+      await api.updateUser(editingUserId, input);
+      toast('แก้ไขผู้ใช้สำเร็จ');
+    } else {
+      if (!username || !name || !password) return toast('กรุณากรอกข้อมูลให้ครบ');
+      await api.createUser({ username, name, role, password });
+      toast('เพิ่มผู้ใช้สำเร็จ');
+    }
+    closeUserModal();
+    renderUsers();
+  } catch (e) {
+    toast(e.message || 'บันทึกไม่สำเร็จ');
+  } finally {
+    $('#btnSaveUser').disabled = false;
+  }
+});
+
+/* ---------- Events Setup ---------- */
+$$('[data-view]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
+$('#newBtn').addEventListener('click',()=>go('inspect'));
+$('#fType').addEventListener('change',buildChecklist);
+$$('.big-btn').forEach(b=>b.addEventListener('click',()=>saveInspection(b.dataset.r)));
+['fltSearch','fltType','fltResult'].forEach(id=>$('#'+id).addEventListener('input',renderRecords));
+$('#exportBtn').addEventListener('click',exportCSV);
+$('#menuBtn').addEventListener('click',()=>{$('#side').classList.add('open');$('#scrim').classList.add('show')});
+$('#scrim').addEventListener('click',()=>{$('#side').classList.remove('open');$('#scrim').classList.remove('show')});
+
+/* clock */
+function tick(){const d=new Date();$('#clock').textContent=`${pad(d.getDate(),2)}/${pad(d.getMonth()+1,2)}/${d.getFullYear()} ${pad(d.getHours(),2)}:${pad(d.getMinutes(),2)}`}
+tick(); setInterval(tick,30000);
+
+/* Export CSV logic is unchanged */
+function exportCSV(){
+  const head=['Inspection No.','Date','Type','Lot/Batch','Inspector','Result','Status','Approver','NC Action','Checklist','Note'];
+  const lines=[head.join(',')];
+  [...RECORDS].sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(r=>{
+    const cl=r.checklist.map(c=>`${c.name}:${c.result}`).join(' | ');
+    const row=[r.no,fmtDate(r.date),r.type,r.lot,r.inspector,r.result,r.status,r.approver||'',r.ncAction||'',cl,(r.note||'')]
+      .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+    lines.push(row);
+  });
+  const blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=`inspection_export_${Date.now()}.csv`; a.click(); URL.revokeObjectURL(url);
+  toast('Export CSV เรียบร้อย');
+}
+
+/* Start App */
+checkAuth();
+</script>
+</body>
+</html>
