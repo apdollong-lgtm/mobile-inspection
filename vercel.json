@@ -2,6 +2,9 @@
   "version": 2,
   "buildCommand": null,
   "outputDirectory": ".",
+  "env": {
+    "VERCEL_PREVIEW_FEEDBACK_ENABLED": "0"
+  },
   "rewrites": [
     { "source": "/api/gas", "destination": "/api/gas.js" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

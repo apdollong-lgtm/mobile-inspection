@@ -277,6 +277,16 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 .menu-btn{display:none;width:38px;height:38px;border-radius:9px;border:1px solid var(--line);place-items:center;background:#fff}
 .scrim{display:none;position:fixed;inset:0;background:rgba(11,31,58,.4);z-index:55}
 .scrim.show{display:block}
+
+/* Hide Vercel Toolbar */
+vercel-live-feedback,
+#vercel-live-feedback-button,
+[data-vercel-toolbar],
+iframe[src*="vercel.live"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
 </style>
 </head>
 <body>
@@ -1434,6 +1444,14 @@ function exportCSV(){
 
 /* Start App */
 checkAuth();
+
+/* Remove Vercel Toolbar if injected */
+(function hideVercelToolbar() {
+  const sel = 'vercel-live-feedback,#vercel-live-feedback-button,[data-vercel-toolbar],iframe[src*="vercel.live"]';
+  const clean = () => document.querySelectorAll(sel).forEach(el => el.remove());
+  clean();
+  new MutationObserver(clean).observe(document.documentElement, { childList: true, subtree: true });
+})();
 </script>
 </body>
 </html>
